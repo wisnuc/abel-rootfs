@@ -60,5 +60,9 @@ typings/
 # next.js build output
 .next
 
-assets/
+# ignore all files in assets
+assets/*
+!assets/.gitkeep
+
+
 rootfs/

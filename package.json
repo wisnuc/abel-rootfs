@@ -1,0 +1,19 @@
+{
+  "name": "abel-rootfs",
+  "version": "1.0.0",
+  "description": "# Scripts",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wisnuc/abel-rootfs.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/wisnuc/abel-rootfs/issues"
+  },
+  "homepage": "https://github.com/wisnuc/abel-rootfs#readme"
+}

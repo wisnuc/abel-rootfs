@@ -6,6 +6,10 @@ const rimrafAsync = Promise.promisify(require('rimraf'))
 const mkdirpAsync = Promise.promisify(require('mkdirp'))
 const request = require('superagent')
 
+let ubuntuFileName = 'ubuntu-base-18.04.1-base-arm64.tar.gz'
+let ubuntuTar = path.join('assets', ubuntuFileName)
+let ubuntuVer = '18.04.1'
+
 let nodeTar
 let nodeVer
 
@@ -66,7 +70,7 @@ const getNode = callback => {
           } else if (err) {
             callback(err)
           } else {
-            console.log(`${nodeTar} exists, skip downloading`)
+            console.log(`${nodeTar} exists, skip download`)
             callback()
           }
         })
@@ -75,15 +79,48 @@ const getNode = callback => {
     })
 }
 
+const getUbuntu = callback =>
+  fs.stat(ubuntuTar, (err, stats) => {
+    if (err && err.code === 'ENOENT') {
+      console.log(`downloading ${ubuntuFileName}`)
+      let finished = false
+      let ws = fs.createWriteStream(tmpfile)
+      let rs = request.get(`https://)
+      rs.on('error', err => !finished && (finished = true, callback(err)))
+      ws.on('error', err => !finished && (finished = true, callback(err)))
+      ws.on('finish', () => {
+        if (finished) return
+        console.log(`testing downloaded file`)
+        child.exec(`tar xf ${tmpfile} > /dev/null`, err => {
+          if (err) {
+            callback(err)
+          } else {
+            fs.rename(tmpfile, ubuntuTar, callback)
+            console.log(`${ubuntuTar} downloaded`)
+          }
+        })
+      })
+      rs.pipe(ws)
+    } else if (err) {
+      callback(err)
+    } else {
+      console.log(`${ubuntuTar} exists, skip download`)
+      callback()
+    }
+  }) 
+
+const getKernel = callback => {
+}
+
+const getUbuntuAsync = Promise.promisify(getUbuntu)
 const getNodeAsync = Promise.promisify(getNode)
 
-const retriveUbuntuBaseAsync = async () => {}
 
-const prepareAssetsAsync = async () => { }
 
 (async () => {
   await rimrafAsync('tmp')
   await mkdirpAsync('tmp')
+  await getUbuntuAsync()
   await getNodeAsync()
 })().then(() => {}).catch(e => console.log(e))
 

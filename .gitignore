@@ -64,5 +64,6 @@ typings/
 assets/*
 !assets/.gitkeep
 
+*.swp
 
 rootfs/

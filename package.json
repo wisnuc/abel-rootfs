@@ -4,6 +4,7 @@
   "description": "# Scripts",
   "main": "index.js",
   "scripts": {
+    "build": "node build.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -15,5 +16,11 @@
   "bugs": {
     "url": "https://github.com/wisnuc/abel-rootfs/issues"
   },
-  "homepage": "https://github.com/wisnuc/abel-rootfs#readme"
+  "homepage": "https://github.com/wisnuc/abel-rootfs#readme",
+  "dependencies": {
+    "bluebird": "^3.5.3",
+    "mkdirp": "^0.5.1",
+    "rimraf": "^2.6.2",
+    "superagent": "^4.0.0-beta.5"
+  }
 }

@@ -6,13 +6,15 @@ const rimrafAsync = Promise.promisify(require('rimraf'))
 const mkdirpAsync = Promise.promisify(require('mkdirp'))
 const request = require('superagent')
 
-let ubuntuFileName = 'ubuntu-base-18.04.1-base-arm64.tar.gz'
-let ubuntuTar = path.join('assets', ubuntuFileName)
 let ubuntuVer = '18.04.1'
+let ubuntuFileName = `ubuntu-base-${ubuntuVer}-base-arm64.tar.gz`
+let ubuntuTar = path.join('assets', ubuntuFileName)
 
 let nodeTar
 let nodeVer
 
+let kernelVer
+let kernelDeb
 
 if (process.getuid()) {
   console.log('this script requires root priviledge')
@@ -27,7 +29,7 @@ args.forEach(arg => {
 })
 
 const getNode = callback => {
-  console.log('retrieving node.js releases')
+  console.log('retrieving latest node.js lts releases')
   request.get('https://api.github.com/repos/nodejs/node/releases')
     .end((err, res) => {
       if (err) {
@@ -79,13 +81,13 @@ const getNode = callback => {
     })
 }
 
-const getUbuntu = callback =>
+const getUbuntu = callback => {
   fs.stat(ubuntuTar, (err, stats) => {
     if (err && err.code === 'ENOENT') {
       console.log(`downloading ${ubuntuFileName}`)
       let finished = false
       let ws = fs.createWriteStream(tmpfile)
-      let rs = request.get(`https://)
+      let rs = request.get(`http://cdimage.ubuntu.com/ubuntu-base/releases/${ubuntuVer}/release/${ubuntuFileName}`)
       rs.on('error', err => !finished && (finished = true, callback(err)))
       ws.on('error', err => !finished && (finished = true, callback(err)))
       ws.on('finish', () => {
@@ -108,20 +110,38 @@ const getUbuntu = callback =>
       callback()
     }
   }) 
+}
 
 const getKernel = callback => {
+  console.log('retrieving latest (mainline) kernel package')  
+  request.get('https://api.github.com/repos/wisnuc/abel-mainline-kernel/releases')
+    .end((err, res) => {
+      if (err) {
+        callback(err)
+      } else {
+        let latest = res.body[0]
+        let tag = latest.tag_name 
+        let imageName = `linux-image-${tag}-arm64.deb`
+        let image = latest.assets.find(x => x.name === `linux-image-${tag}-arm64.deb`
+        if (!image) return callback(new Error('kernel package not found'))
+        let ko = latest.assets.find(x => x.name === `88x2bu.ko`)
+        if (ko) return callback(new Error('kernel module not found'))
+
+        callback()
+      }
+    })
 }
 
 const getUbuntuAsync = Promise.promisify(getUbuntu)
 const getNodeAsync = Promise.promisify(getNode)
+const getKernelAsync = Promise.promisify(getKernel)
 
-
-
-(async () => {
+;(async () => {
   await rimrafAsync('tmp')
   await mkdirpAsync('tmp')
   await getUbuntuAsync()
   await getNodeAsync()
+  await getKernelAsync() 
 })().then(() => {}).catch(e => console.log(e))
 
 

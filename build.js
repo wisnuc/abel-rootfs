@@ -89,7 +89,7 @@ const getUbuntu = callback =>
       let href = `http://cdimage.ubuntu.com/ubuntu-base/releases/${ubuntuVer}/release/${filename}`
       let contentType = 'application/x-gzip'
       let tmpfile = path.join('tmp', filename)
-      let target = ubuntuTar
+      let target = path.join('assets', filename)
       let progress = fetch({ href, contentType, filename, tmpfile, target }, err => {
         clearInterval(timer)
         if (err) {
@@ -122,7 +122,7 @@ const getUbuntu = callback =>
     } else if (err) {
       callback(err)
     } else {
-      console.log(`${ubuntuTar} exists, skip download`)
+      console.log(`${filename} exists, skip download`)
       callback()
     }
   })

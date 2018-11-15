@@ -111,7 +111,7 @@ const execAsync = Promise.promisify(exec)
   await execAsync(`mkswap /dev/${devname}5`)
   await execAsync(`mkfs.btrfs -f /dev/${devname}6`)
   await execAsync(`partprobe`)
-
+  await 
 
 
 })().then(() => {}).catch(e => console.log(e))

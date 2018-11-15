@@ -122,7 +122,7 @@ const getUbuntu = callback =>
     } else if (err) {
       callback(err)
     } else {
-      console.log(`${filename} exists, skip download`)
+      console.log(`${ubuntuTar} exists, skip download`)
       callback()
     }
   })
@@ -230,14 +230,14 @@ source-directory /etc/network/interfaces.d
 
 ;(async () => {
   await mkdirp('assets')
+  await rimrafAsync('tmp')
+  await mkdirpAsync('tmp')
+
   await getUbuntuAsync()
-  // await getNodeAsync()
+  await getNodeAsync()
   await getKernelAsync()
 
   console.log('all required blobs are ready')
-
-  await rimrafAsync('tmp')
-  await mkdirpAsync('tmp')
 
   await rimrafAsync('rootfs')
   await mkdirpAsync('rootfs')

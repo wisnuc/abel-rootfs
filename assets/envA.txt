@@ -1,0 +1,5 @@
+verbosity=1
+console=bothoverlay_prefix=rk3328
+rootfstype=ext4
+usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
+partnum=2

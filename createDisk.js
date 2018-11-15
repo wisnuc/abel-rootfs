@@ -42,7 +42,6 @@ const fdiskCmds = [
 ]
 
 const fdisk = (dev, callback) => {
-
   console.log('======')
   console.log(`fdisk ${dev}`)
   console.log('======')
@@ -59,7 +58,6 @@ const fdisk = (dev, callback) => {
 const fdiskAsync = Promise.promisify(fdisk)
 
 const exec = (cmd, callback) => {
-
   console.log('======')
   console.log(cmd)
   console.log('======')
@@ -104,15 +102,12 @@ const execAsync = Promise.promisify(exec)
   await child.execAsync(cmd)
 
   await fdiskAsync(devpath)
-
   await execAsync(`mkfs.ext4 -F -U ${UUID_P} /dev/${devname}1`)
   await execAsync(`mkfs.ext4 -F -U ${UUID_P} /dev/${devname}2`)
   await execAsync(`mkfs.ext4 -F -U ${UUID_P} /dev/${devname}3`)
   await execAsync(`mkswap /dev/${devname}5`)
   await execAsync(`mkfs.btrfs -f /dev/${devname}6`)
   await execAsync(`partprobe`)
-  await 
-
 
 })().then(() => {}).catch(e => console.log(e))
 

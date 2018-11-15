@@ -62,7 +62,10 @@ typings/
 
 # ignore all files in assets
 assets/*
-!assets/.gitkeep
+!assets/boot.cmd
+!assets/envA.txt
+!assets/envB.txt
+
 
 *.swp
 *.tar.gz

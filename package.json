@@ -21,7 +21,8 @@
     "bluebird": "^3.5.3",
     "mkdirp": "^0.5.1",
     "rimraf": "^2.6.2",
-    "superagent": "^4.0.0-beta.5"
+    "superagent": "^4.0.0-beta.5",
+    "uuid": "^3.3.2"
   },
   "devDependencies": {
     "eslint": "^5.9.0",

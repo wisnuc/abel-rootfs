@@ -12,6 +12,7 @@ const mkdirp = require('mkdirp')
 const rimrafAsync = Promise.promisify(rimraf)
 const mkdirpAsync = Promise.promisify(mkdirp)
 
+const partUUID = require('./lib/partUUID')
 const fetch = require('./lib/fetch')
 
 let ubuntuVer = '18.04.1'
@@ -34,6 +35,27 @@ if (process.getuid()) {
 
 let args = process.argv.slice(2)
 args.forEach(arg => {})
+
+const fstab = part => {
+  let root, alt
+  if (part === 'a') {
+    root = partUUID.a
+    alt = partUUID.b
+  } else if (part === 'b') {
+    root = partUUID.b
+    alt = partUUID.a
+  } else {
+    throw new Error('bad root fs name')
+  }
+
+  return `# <file system> <mount point>   <type>  <options>   <dump>  <pass>
+UUID=${root}        /               ext4    defaults          0       1
+UUID=${alt}         /mnt/alt        ext4    defaults          0       2
+UUID=${partUUID.p}  /mnt/persistent ext4    defaults          0       3
+UUID=${partUUID.s}  none            swap    sw                0       0        
+`
+}
+
 
 const getNode = callback => {
   console.log('retrieving latest node.js lts releases')
@@ -202,6 +224,7 @@ const chrootExec = (cmd, callback) => {
 
 const cexecAsync = Promise.promisify(chrootExec)
 
+// obsolete
 const wiredNetwork = `
 [Match]
 Name=en*
@@ -210,7 +233,7 @@ DHCP=ipv4
 `
 const hosts = `
 127.0.0.1 localhost
-127.0.1.1 wisnuc
+127.0.1.1 winas
 
 # The following lines are desirable for IPv6 capable hosts
 ::1     localhost ip6-localhost ip6-loopback
@@ -225,7 +248,8 @@ const networkInterfaces = `
 # allow-hotplug eth0
 # iface eth0 inet dhcp
 
-source-directory /etc/network/interfaces.d
+auto lo
+iface lo inet loopback
 `
 
 ;(async () => {
@@ -251,7 +275,7 @@ source-directory /etc/network/interfaces.d
   let qemu = (await execAsync('which qemu-aarch64-static')).trim()
   await fs.copyFileAsync(qemu, path.join('rootfs', qemu))
 
-  await createFileAsync('etc/systemd/network/wired.network', wiredNetwork)
+  // await createFileAsync('etc/systemd/network/wired.network', wiredNetwork)
   await createFileAsync('etc/resolv.conf', await fs.readFileAsync('/etc/resolv.conf'))
   await createFileAsync('etc/hosts', hosts)
   await createFileAsync('etc/hostname', 'wisnuc\n')
@@ -269,8 +293,10 @@ source-directory /etc/network/interfaces.d
 
   let packages = [
     'initramfs-tools', 
-    'u-boot-tools',
+    'ifupdown',
+    'net-tools',
     'btrfs-tools',
+    'u-boot-tools',
     'sudo', 
     'openssh-server',
     'network-manager'
@@ -281,9 +307,7 @@ source-directory /etc/network/interfaces.d
   await cexecAsync(`echo winas:winas | chpasswd`)
   await cexecAsync(`adduser winas sudo`)
 
-  console.log('======')
-  console.log('installing kernel package')
-  console.log('======')
+  console.log('[[ installing kernel package ]]')
 
   await cexecAsync(`dpkg -i ${kernelDeb}`)
   await cexecAsync(`ln -s vmlinuz-${kernelVer} /boot/Image`)
@@ -292,8 +316,9 @@ source-directory /etc/network/interfaces.d
   await cexecAsync(`ln -s uInitrd-${kernelVer} /boot/uInitrd`)
   await cexecAsync(`ln -s /usr/lib/linux-image-${kernelVer} /boot/dtb`)
 
-  await cexecAsync(`systemctl enable systemd-networkd`)
-  await cexecAsync(`systemctl enable systemd-resolved`)
+  await cexecAsync(`systemctl enable NetworkManager`)
+  // await cexecAsync(`systemctl enable systemd-networkd`)
+  // await cexecAsync(`systemctl enable systemd-resolved`)
   // await cexecAsync(`systemctl disable smbd nmbd minidlna`)
 
   await cexecAsync(`apt clean`) 
@@ -307,8 +332,13 @@ source-directory /etc/network/interfaces.d
 
   await rimrafAsync(path.join('rootfs', kernelDeb)) 
   await rimrafAsync(path.join('rootfs', 'etc/resolv.conf'))
-  await execAsync(`ln -sf /run/systemd/resolve/resolv.conf rootfs/etc/resolv.conf`)
+  // await execAsync(`ln -sf /run/systemd/resolve/resolv.conf rootfs/etc/resolv.conf`)
 
+  await mkdirpAsync('rootfs/winas')
+  await mkdirpAsync('rootfs/mnt/alt')
+  await mkdirpAsync('rootfs/mnt/persistent')
+  await fs.writeFileAsync('rootfs/etc/fstab-a', fstab('a'))
+  await fs.writeFileAsync('rootfs/etc/fstab-b', fstab('b'))
   await execAsync(`tar czf rootfs.tar.gz -C rootfs .`)
 
 })().then(() => {}).catch(e => console.log(e))

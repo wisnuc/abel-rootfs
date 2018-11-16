@@ -70,4 +70,5 @@ assets/*
 *.swp
 *.tar.gz
 
+out/
 rootfs/

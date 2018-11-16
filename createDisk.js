@@ -131,6 +131,11 @@ UUID=${rootfsUUID}  /       ext4  defaults          0   1
 
   console.log('preparing partition p')
   await execAsync(`mount /dev/${devname}1 mnt/p`)
+  await execAsync(`tar xf out/p.tar.gz -C mnt/p`)
+  await execAsync('umount -l mnt/p')
+  console.log('partition p is ready')
+
+/**
   await mkdirpAsync('mnt/p/boot')
   await fs.copyFileAsync('assets/boot.cmd', 'mnt/p/boot/boot.cmd')
   await fs.copyFileAsync('assets/boot.scr', 'mnt/p/boot/boot.scr')
@@ -139,12 +144,11 @@ UUID=${rootfsUUID}  /       ext4  defaults          0   1
   await execAsync('chattr +i mnt/p/boot/env-a.txt')
   await fs.writeFileAsync('mnt/p/boot/env-b.txt', bootenv(partUUID.b))
   await execAsync('chattr +i mnt/p/boot/env-b.txt')
-  await execAsync('umount -l mnt/p')
-  console.log('partition p is ready')
+*/
 
   console.log('preparing partition a')
   await execAsync(`mount /dev/${devname}2 mnt/a`)
-  await execAsync(`tar xf rootfs.tar.gz -C mnt/a`)
+  await execAsync(`tar xf out/rootfs.tar.gz -C mnt/a`)
   await execAsync(`cp mnt/a/etc/fstab-a mnt/a/etc/fstab`)
   await execAsync(`umount -l mnt/a`)
   console.log('partition a is ready')

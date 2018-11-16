@@ -202,7 +202,7 @@ const getNodeAsync = Promise.promisify(getNode)
 const getKernelAsync = Promise.promisify(getKernel)
 
 const createFile = (file, data, callback) => {
-  let rpath = path.join('rootfs', file) 
+  let rpath = path.join('out', 'rootfs', file) 
   mkdirp(path.dirname(rpath), err => {
     if (err) {
       callback(err)
@@ -215,7 +215,7 @@ const createFile = (file, data, callback) => {
 const createFileAsync = Promise.promisify(createFile)
 
 const chrootExec = (cmd, callback) => {
-  let args = [ 'rootfs', '/bin/bash', '-c', cmd]
+  let args = [ 'out/rootfs', '/bin/bash', '-c', cmd]
   let opts = { stdio: 'inherit' }
   let c = child.spawn('chroot', args, opts)
   c.on('error', err => callback(err))
@@ -252,6 +252,26 @@ auto lo
 iface lo inet loopback
 `
 
+const nmconf = 
+`[main]
+plugins=ifupdown,keyfile
+
+[ifupdown]
+managed=true
+
+[device]
+wifi.scan-rand-mac-address=no
+`
+
+const bootenv = uuid => `
+verbosity=1
+console=bothoverlay_prefix=rk3328
+rootfstype=ext4
+usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
+partnum=2
+rootdev=UUID=${uuid}
+`
+
 ;(async () => {
   await mkdirp('assets')
   await rimrafAsync('tmp')
@@ -263,17 +283,24 @@ iface lo inet loopback
 
   console.log('all required blobs are ready')
 
-  await rimrafAsync('rootfs')
-  await mkdirpAsync('rootfs')
+  try {
+    await execAsync('chattr -i out/p/boot/env-a.txt')
+  } catch (e) { }
+
+  try {
+    await execAsync('chattr -i out/p/boot/env-b.txt')
+  } catch (e) { }
+
+  await rimrafAsync('out')
+  await mkdirpAsync('out/rootfs')
 
   console.log('extracting ubuntu-base')
-  await execAsync(`tar xzf assets/${ubuntuTar} -C rootfs`) 
+  await execAsync(`tar xzf assets/${ubuntuTar} -C out/rootfs`) 
 
-  await fs.copyFileAsync(path.join('assets', kernelDeb), 
-    path.join('rootfs', kernelDeb))
+  await fs.copyFileAsync(path.join('assets', kernelDeb), path.join('out', 'rootfs', kernelDeb))
 
   let qemu = (await execAsync('which qemu-aarch64-static')).trim()
-  await fs.copyFileAsync(qemu, path.join('rootfs', qemu))
+  await fs.copyFileAsync(qemu, path.join('out', 'rootfs', qemu))
 
   // await createFileAsync('etc/systemd/network/wired.network', wiredNetwork)
   await createFileAsync('etc/resolv.conf', await fs.readFileAsync('/etc/resolv.conf'))
@@ -282,10 +309,10 @@ iface lo inet loopback
   await createFileAsync('etc/network/interfaces', networkInterfaces)
  
   console.log('mounting special file system for chroot')
-  await execAsync('mount -t proc chproc rootfs/proc')
-  await execAsync('mount -t sysfs chsys rootfs/sys')
-  await execAsync('mount -t devtmpfs chdev rootfs/dev')
-  await execAsync('mount -t devpts chpts rootfs/dev/pts')
+  await execAsync('mount -t proc chproc out/rootfs/proc')
+  await execAsync('mount -t sysfs chsys out/rootfs/sys')
+  await execAsync('mount -t devtmpfs chdev out/rootfs/dev')
+  await execAsync('mount -t devpts chpts out/rootfs/dev/pts')
   console.log('mounted')
 
   await cexecAsync(`apt update`)
@@ -318,27 +345,49 @@ iface lo inet loopback
 
   await cexecAsync(`systemctl enable NetworkManager`)
   // await cexecAsync(`systemctl enable systemd-networkd`)
-  // await cexecAsync(`systemctl enable systemd-resolved`)
+  await cexecAsync(`systemctl enable systemd-resolved`)
   // await cexecAsync(`systemctl disable smbd nmbd minidlna`)
 
   await cexecAsync(`apt clean`) 
 
   console.log('un-mounting special file system for chroot')
-  await execAsync('umount -l rootfs/dev/pts')
-  await execAsync('umount -l rootfs/dev')
-  await execAsync('umount -l rootfs/sys')
-  await execAsync('umount -l rootfs/proc')
+  await execAsync('umount -l out/rootfs/dev/pts')
+  await execAsync('umount -l out/rootfs/dev')
+  await execAsync('umount -l out/rootfs/sys')
+  await execAsync('umount -l out/rootfs/proc')
   console.log('un-mounted')
 
-  await rimrafAsync(path.join('rootfs', kernelDeb)) 
-  await rimrafAsync(path.join('rootfs', 'etc/resolv.conf'))
-  // await execAsync(`ln -sf /run/systemd/resolve/resolv.conf rootfs/etc/resolv.conf`)
+  await rimrafAsync(path.join('out', 'rootfs', kernelDeb)) 
+  await rimrafAsync(path.join('out', 'rootfs', 'etc/resolv.conf'))
+  await execAsync(`ln -sf /run/systemd/resolve/resolv.conf out/rootfs/etc/resolv.conf`)
 
-  await mkdirpAsync('rootfs/winas')
-  await mkdirpAsync('rootfs/mnt/alt')
-  await mkdirpAsync('rootfs/mnt/persistent')
-  await fs.writeFileAsync('rootfs/etc/fstab-a', fstab('a'))
-  await fs.writeFileAsync('rootfs/etc/fstab-b', fstab('b'))
-  await execAsync(`tar czf rootfs.tar.gz -C rootfs .`)
+  await mkdirpAsync('out/rootfs/winas')
+  await mkdirpAsync('out/rootfs/mnt/alt')
+  await mkdirpAsync('out/rootfs/mnt/persistent')
+  
+  // !!! important
+  await rimrafAsync('out/rootfs/etc/fstab')
 
+  await fs.writeFileAsync('out/rootfs/etc/fstab-a', fstab('a'))
+  await fs.writeFileAsync('out/rootfs/etc/fstab-b', fstab('b'))
+  await mkdirpAsync('out/p/boot')
+  await fs.copyFileAsync('assets/boot.cmd', 'out/p/boot/boot.cmd')
+  await execAsync(`mkimage -C none -A arm -T script -d out/p/boot/boot.cmd out/p/boot/boot.scr`)
+
+  await fs.writeFileAsync('out/p/boot/armbianEnv.txt', bootenv(partUUID.a))
+  await fs.writeFileAsync('out/p/boot/env-a.txt', bootenv(partUUID.a))
+  await execAsync('chattr +i out/p/boot/env-a.txt')
+  await fs.writeFileAsync('out/p/boot/env-b.txt', bootenv(partUUID.b))
+  await execAsync('chattr +i out/p/boot/env-b.txt')
+
+  await fs.writeFileAsync('out/rootfs/etc/NetworkManager/NetworkManager.conf', nmconf)
+  await mkdirpAsync('out/p/overlay/etc')
+  await execAsync('mv out/rootfs/etc/NetworkManager out/p/overlay/etc')
+  await execAsync('ln -s /mnt/persistent/overlay/etc/NetworkManager out/rootfs/etc/NetworkManager')
+
+  await execAsync(`tar czf out/rootfs.tar.gz -C out/rootfs .`)
+  console.log('rootfs.tar.gz is ready')
+
+  await execAsync(`tar czf out/p.tar.gz -C out/p .`)
+  console.log('p.tar.gz is ready')
 })().then(() => {}).catch(e => console.log(e))

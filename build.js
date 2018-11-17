@@ -234,6 +234,7 @@ ff02::1 ip6-allnodes
 ff02::2 ip6-allrouters
 `
 
+// don't set eth0, nm will manage it. not ifupdown
 const networkInterfaces = `
 # interfaces(5) file used by ifup(8) and ifdown(8)
 # Include files from /etc/network/interfaces.d:
@@ -245,6 +246,8 @@ auto lo
 iface lo inet loopback
 `
 
+// touch conf.d/10-globally-managed-devices.conf
+// dns=systemd-networkd is not required
 const nmconf = 
 `[main]
 plugins=ifupdown,keyfile
@@ -318,6 +321,7 @@ rootdev=UUID=${uuid}
     'btrfs-tools',
     'u-boot-tools',
     'sudo', 
+    'vim',
     'openssh-server',
     'network-manager'
   ]
@@ -337,7 +341,6 @@ rootdev=UUID=${uuid}
   await cexecAsync(`ln -s /usr/lib/linux-image-${kernelVer} /boot/dtb`)
 
   await cexecAsync(`systemctl enable NetworkManager`)
-  // await cexecAsync(`systemctl enable systemd-networkd`)
   await cexecAsync(`systemctl enable systemd-resolved`)
   // await cexecAsync(`systemctl disable smbd nmbd minidlna`)
 
@@ -360,9 +363,9 @@ rootdev=UUID=${uuid}
   
   // !!! important, this file indicates a rootfs upgrade status
   await rimrafAsync('out/rootfs/etc/fstab')
-
   await fs.writeFileAsync('out/rootfs/etc/fstab-a', fstab('a'))
   await fs.writeFileAsync('out/rootfs/etc/fstab-b', fstab('b'))
+
   await mkdirpAsync('out/p/boot')
   await fs.copyFileAsync('assets/boot.cmd', 'out/p/boot/boot.cmd')
   await execAsync(`mkimage -C none -A arm -T script -d out/p/boot/boot.cmd out/p/boot/boot.scr`)
@@ -374,6 +377,7 @@ rootdev=UUID=${uuid}
   await execAsync('chattr +i out/p/boot/env-b.txt')
 
   await fs.writeFileAsync('out/rootfs/etc/NetworkManager/NetworkManager.conf', nmconf)
+  await execAsync('touch out/rootfs/etc/NetworkManager/conf.d/10-globally-managed-devices.conf')
   await mkdirpAsync('out/p/overlay/etc')
   await execAsync('mv out/rootfs/etc/NetworkManager out/p/overlay/etc')
   await execAsync('ln -s /mnt/persistent/overlay/etc/NetworkManager out/rootfs/etc/NetworkManager')

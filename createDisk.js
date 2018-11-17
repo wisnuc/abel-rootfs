@@ -10,6 +10,40 @@ const mkdirpAsync = Promise.promisify(mkdirp)
 
 const partUUID = require('./lib/partUUID')
 
+const CCReset = '\x1b[0m'
+const CCBright = '\x1b[1m'
+const CCBgGreen = '\x1b[42m'
+const CCFgGreen = '\x1b[32m'
+/**
+Reset = "\x1b[0m"
+Bright = "\x1b[1m"
+Dim = "\x1b[2m"
+Underscore = "\x1b[4m"
+Blink = "\x1b[5m"
+Reverse = "\x1b[7m"
+Hidden = "\x1b[8m"
+
+FgBlack = "\x1b[30m"
+FgRed = "\x1b[31m"
+FgGreen = "\x1b[32m"
+FgYellow = "\x1b[33m"
+FgBlue = "\x1b[34m"
+FgMagenta = "\x1b[35m"
+FgCyan = "\x1b[36m"
+FgWhite = "\x1b[37m"
+
+BgBlack = "\x1b[40m"
+BgRed = "\x1b[41m"
+BgGreen = "\x1b[42m"
+BgYellow = "\x1b[43m"
+BgBlue = "\x1b[44m"
+BgMagenta = "\x1b[45m"
+BgCyan = "\x1b[46m"
+BgWhite = "\x1b[47m"
+*/
+
+const cog = x => console.log(`${CCBright}${CCFgGreen}$ ${x}${CCReset}`)
+
 // let size = parseInt(fs.readFileSync(`/sys/block/${devname}/size`).toString().trim()) * 512
 
 const fdiskCmds = [
@@ -44,9 +78,7 @@ const fdiskCmds = [
 ]
 
 const fdisk = (dev, callback) => {
-  console.log('======')
-  console.log(`fdisk ${dev}`)
-  console.log('======')
+  cog(`fdisk ${dev}`)
 
   let fd = child.spawn('fdisk',  [dev])
   fd.stdout.pipe(process.stdout)
@@ -60,7 +92,7 @@ const fdisk = (dev, callback) => {
 const fdiskAsync = Promise.promisify(fdisk)
 
 const exec = (cmd, callback) => {
-  console.log(`[[ ${cmd} ]]`)
+  cog(`${cmd}`)
 
   let split = cmd.split(' ')
     .map(x => x.trim())
@@ -77,20 +109,6 @@ const exec = (cmd, callback) => {
 }
 
 const execAsync = Promise.promisify(exec)
-
-const bootenv = uuid => `
-verbosity=1
-console=bothoverlay_prefix=rk3328
-rootfstype=ext4
-usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
-partnum=2
-rootdev=UUID=${uuid}
-`
-
-const fstab = (rootfsUUID, btrfsUUID, swapUUID) => `
-# <file system> <mount point>   <type>  <options>   <dump>  <pass>
-UUID=${rootfsUUID}  /       ext4  defaults          0   1
-`
 
 ;(async () => {
   const args = process.argv.slice(2)
@@ -109,12 +127,7 @@ UUID=${rootfsUUID}  /       ext4  defaults          0   1
 
   let devname = devpath.split('/').pop()
 
-  let cmd 
-
-  cmd = `wipefs -a ${devpath}`
-  console.log(cmd)
-  await child.execAsync(cmd)
-
+  await execAsync(`wipefs -a ${devpath}`)
   await fdiskAsync(devpath)
   await execAsync(`mkfs.ext4 -F -U ${partUUID.p} /dev/${devname}1`)
   await execAsync(`mkfs.ext4 -F -U ${partUUID.a} /dev/${devname}2`)
@@ -123,17 +136,21 @@ UUID=${rootfsUUID}  /       ext4  defaults          0   1
   await execAsync(`mkfs.btrfs -f /dev/${devname}6`)
   await execAsync(`partprobe`)
 
-  await execAsync(`mkimage -C none -A arm -T script -d assets/boot.cmd assets/boot.scr`)
+  await execAsync('mkimage -C none -A arm -T script -d assets/boot.cmd assets/boot.scr')
 
+/**
   await rimrafAsync('mnt')
   await mkdirpAsync('mnt/p')
   await mkdirpAsync('mnt/a')
+*/
 
-  console.log('preparing partition p')
+  await execAsync('rm -rf mnt')
+  await execAsync('mkdir -p mnt/p')
+  await execAsync('mkdir -p mnt/a')
+
   await execAsync(`mount /dev/${devname}1 mnt/p`)
-  await execAsync(`tar xf out/p.tar.gz -C mnt/p`)
+  await execAsync('tar xf out/p.tar.gz -C mnt/p')
   await execAsync('umount -l mnt/p')
-  console.log('partition p is ready')
 
 /**
   await mkdirpAsync('mnt/p/boot')
@@ -146,12 +163,10 @@ UUID=${rootfsUUID}  /       ext4  defaults          0   1
   await execAsync('chattr +i mnt/p/boot/env-b.txt')
 */
 
-  console.log('preparing partition a')
   await execAsync(`mount /dev/${devname}2 mnt/a`)
   await execAsync(`tar xf out/rootfs.tar.gz -C mnt/a`)
   await execAsync(`cp mnt/a/etc/fstab-a mnt/a/etc/fstab`)
   await execAsync(`umount -l mnt/a`)
-  console.log('partition a is ready')
 
 })().then(() => {}).catch(e => console.log(e))
 

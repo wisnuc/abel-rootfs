@@ -224,13 +224,6 @@ const chrootExec = (cmd, callback) => {
 
 const cexecAsync = Promise.promisify(chrootExec)
 
-// obsolete
-const wiredNetwork = `
-[Match]
-Name=en*
-[Network]
-DHCP=ipv4
-`
 const hosts = `
 127.0.0.1 localhost
 127.0.1.1 winas
@@ -365,7 +358,7 @@ rootdev=UUID=${uuid}
   await mkdirpAsync('out/rootfs/mnt/alt')
   await mkdirpAsync('out/rootfs/mnt/persistent')
   
-  // !!! important
+  // !!! important, this file indicates a rootfs upgrade status
   await rimrafAsync('out/rootfs/etc/fstab')
 
   await fs.writeFileAsync('out/rootfs/etc/fstab-a', fstab('a'))

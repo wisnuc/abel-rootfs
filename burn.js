@@ -74,9 +74,13 @@ let devname = devpath.split('/').pop()
   await execAsync('rm -rf mnt')
   await execAsync('mkdir -p mnt/p')
   await execAsync('mkdir -p mnt/a')
+
   await execAsync(`mount /dev/${devname}1 mnt/p`)
   await execAsync('tar xf out/p.tar.gz -C mnt/p')
+  await execAsync('chattr +i mnt/p/boot/env-a.txt')
+  await execAsync('chattr +i mnt/p/boot/env-b.txt')
   await execAsync('umount -l mnt/p')
+
   await execAsync(`mount /dev/${devname}2 mnt/a`)
   await execAsync(`tar xf out/rootfs.tar.gz -C mnt/a`)
   await execAsync(`cp mnt/a/etc/fstab-a mnt/a/etc/fstab`)

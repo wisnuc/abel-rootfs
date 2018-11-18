@@ -24,6 +24,8 @@ let nodeVer
 // these are set by getKernel function
 // example: 
 // tag: 4.19.0-0000
+// ver: 4.19.0
+// deb: 
 let kernelTag
 let kernelVer
 let kernelDeb
@@ -246,7 +248,6 @@ auto lo
 iface lo inet loopback
 `
 
-// touch conf.d/10-globally-managed-devices.conf
 // dns=systemd-networkd is not required
 const nmconf = 
 `[main]
@@ -279,18 +280,11 @@ rootdev=UUID=${uuid}
 
   console.log('all required blobs are ready')
 
-  try {
-    await execAsync('chattr -i out/p/boot/env-a.txt')
-  } catch (e) { }
-
-  try {
-    await execAsync('chattr -i out/p/boot/env-b.txt')
-  } catch (e) { }
-
   await rimrafAsync('out')
   await mkdirpAsync('out/rootfs')
 
   console.log('extracting ubuntu-base')
+
   await execAsync(`tar xzf assets/${ubuntuTar} -C out/rootfs`) 
 
   await fs.copyFileAsync(path.join('assets', kernelDeb), path.join('out', 'rootfs', kernelDeb))
@@ -301,10 +295,10 @@ rootdev=UUID=${uuid}
   // await createFileAsync('etc/systemd/network/wired.network', wiredNetwork)
   await createFileAsync('etc/resolv.conf', await fs.readFileAsync('/etc/resolv.conf'))
   await createFileAsync('etc/hosts', hosts)
-  await createFileAsync('etc/hostname', 'wisnuc\n')
+  await createFileAsync('etc/hostname', 'winas\n')
   await createFileAsync('etc/network/interfaces', networkInterfaces)
- 
   console.log('mounting special file system for chroot')
+
   await execAsync('mount -t proc chproc out/rootfs/proc')
   await execAsync('mount -t sysfs chsys out/rootfs/sys')
   await execAsync('mount -t devtmpfs chdev out/rootfs/dev')
@@ -320,10 +314,21 @@ rootdev=UUID=${uuid}
     'net-tools',
     'btrfs-tools',
     'u-boot-tools',
+    'wireless-tools',
     'sudo', 
     'vim',
     'openssh-server',
-    'network-manager'
+    'network-manager',
+//    'overlayroot'
+    'avahi-daemon',
+    'avahi-utils',
+    'udisks2',
+    'libimage-exiftool-perl',
+    'imagemagick',
+    'ffmpeg',
+    'samba',
+    'rsyslog',
+    'minidlna'
   ]
 
   await cexecAsync(`apt -y install ${packages.join(' ')}`)
@@ -340,8 +345,9 @@ rootdev=UUID=${uuid}
   await cexecAsync(`ln -s uInitrd-${kernelVer} /boot/uInitrd`)
   await cexecAsync(`ln -s /usr/lib/linux-image-${kernelVer} /boot/dtb`)
 
-  await cexecAsync(`systemctl enable NetworkManager`)
+  // dns & network
   await cexecAsync(`systemctl enable systemd-resolved`)
+  await cexecAsync(`systemctl enable NetworkManager`)
   // await cexecAsync(`systemctl disable smbd nmbd minidlna`)
 
   await cexecAsync(`apt clean`) 
@@ -353,9 +359,14 @@ rootdev=UUID=${uuid}
   await execAsync('umount -l out/rootfs/proc')
   console.log('un-mounted')
 
-  await rimrafAsync(path.join('out', 'rootfs', kernelDeb)) 
+  // update conf
+  await createFileAsync('etc/NetworkManager/NetworkManager.conf', nmconf)
+  await createFileAsync('etc/NetworkManager/conf.d/10-globally-managed-devices.conf', '')
+  // await createFileAsync('etc/overlayroot.conf', 'overlayroot="tmpfs:swap=1,recurse=0"')
   await rimrafAsync(path.join('out', 'rootfs', 'etc/resolv.conf'))
   await execAsync(`ln -sf /run/systemd/resolve/resolv.conf out/rootfs/etc/resolv.conf`)
+
+  await rimrafAsync(path.join('out', 'rootfs', kernelDeb)) 
 
   await mkdirpAsync('out/rootfs/winas')
   await mkdirpAsync('out/rootfs/mnt/alt')
@@ -372,12 +383,8 @@ rootdev=UUID=${uuid}
 
   await fs.writeFileAsync('out/p/boot/armbianEnv.txt', bootenv(partUUID.a))
   await fs.writeFileAsync('out/p/boot/env-a.txt', bootenv(partUUID.a))
-  await execAsync('chattr +i out/p/boot/env-a.txt')
   await fs.writeFileAsync('out/p/boot/env-b.txt', bootenv(partUUID.b))
-  await execAsync('chattr +i out/p/boot/env-b.txt')
 
-  await fs.writeFileAsync('out/rootfs/etc/NetworkManager/NetworkManager.conf', nmconf)
-  await execAsync('touch out/rootfs/etc/NetworkManager/conf.d/10-globally-managed-devices.conf')
   await mkdirpAsync('out/p/overlay/etc')
   await execAsync('mv out/rootfs/etc/NetworkManager out/p/overlay/etc')
   await execAsync('ln -s /mnt/persistent/overlay/etc/NetworkManager out/rootfs/etc/NetworkManager')

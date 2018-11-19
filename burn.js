@@ -82,12 +82,10 @@ let devname = devpath.split('/').pop()
 
   await execAsync(`mount /dev/${devname}2 mnt/a`)
   await execAsync(`tar xf out/rootfs.tar.gz -C mnt/a`)
-  await execAsync(`cp mnt/a/etc/fstab-a mnt/a/etc/fstab`)
   await execAsync(`umount -l mnt/a`)
 
   await execAsync(`mount /dev/${devname}3 mnt/b`)
   await execAsync(`tar xf out/rootfs.tar.gz -C mnt/b`)
-  await execAsync(`cp mnt/b/etc/fstab-b mnt/b/etc/fstab`)
   await execAsync(`umount -l mnt/b`)
 
 })().then(() => {}).catch(e => console.log(e))

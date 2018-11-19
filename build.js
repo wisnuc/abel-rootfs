@@ -45,9 +45,7 @@ UUID=0cbc36fa-3b85-40af-946e-f15dce29d86b   /mnt/persistent   ext4    defaults  
 UUID=f0bc3049-049f-4e8e-8215-55f48add603f   none              swap    sw                          0       0
 tmpfs                                       /tmp              tmpfs   nodev,nosuid,size=64M       0       0
 tmpfs                                       /var/log          tmpfs   nodev,nosuid,size=64M       0       0
-tmpfs                                       /var/volatile     tmpfs   nodev,nosuid,size=64M       0       0
-/var/volatile/lib                           /var/lib          none    bind                        0       0
-/var/volatile/tmp                           /var/tmp          none    bind                        0       0
+tmpfs                                       /var/tmp          tmpfs   nodev,nosuid,size=64M       0       0
 `
 
 const getNode = callback => {
@@ -251,15 +249,6 @@ managed=true
 wifi.scan-rand-mac-address=no
 `
 
-const bootenv = uuid => `
-verbosity=1
-console=bothoverlay_prefix=rk3328
-rootfstype=ext4
-usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
-partnum=2
-rootdev=UUID=${uuid}
-`
-
 ;(async () => {
   await mkdirp('assets')
   await rimrafAsync('tmp')
@@ -283,7 +272,6 @@ rootdev=UUID=${uuid}
   let qemu = (await execAsync('which qemu-aarch64-static')).trim()
   await fs.copyFileAsync(qemu, path.join('out', 'rootfs', qemu))
 
-  // await createFileAsync('etc/systemd/network/wired.network', wiredNetwork)
   await createFileAsync('etc/resolv.conf', await fs.readFileAsync('/etc/resolv.conf'))
   await createFileAsync('etc/hosts', hosts)
   await createFileAsync('etc/hostname', 'winas\n')
@@ -318,15 +306,14 @@ rootdev=UUID=${uuid}
     'ffmpeg',
     'samba',
     'rsyslog',
-    'minidlna'
+    'minidlna',
+    'overlayroot'
   ]
 
-  await cexecAsync(`apt -y install ${packages.join(' ')}`)
+  await cexecAsync(`DEBIAN_FRONTEND=noninteractive apt -y install ${packages.join(' ')}`)
   await cexecAsync(`useradd winas -b /home -m -s /bin/bash`)
   await cexecAsync(`echo winas:winas | chpasswd`)
   await cexecAsync(`adduser winas sudo`)
-
-  console.log('[[ installing kernel package ]]')
 
   await cexecAsync(`dpkg -i ${kernelDeb}`)
   await cexecAsync(`ln -s vmlinuz-${kernelVer} /boot/Image`)
@@ -350,13 +337,12 @@ rootdev=UUID=${uuid}
   await execAsync('umount -l out/rootfs/proc')
   console.log('un-mounted')
 
-  // update conf
   await createFileAsync('etc/NetworkManager/NetworkManager.conf', nmconf)
   await createFileAsync('etc/NetworkManager/conf.d/10-globally-managed-devices.conf', '')
   await rimrafAsync(path.join('out', 'rootfs', 'etc/resolv.conf'))
   await execAsync(`ln -sf /run/systemd/resolve/resolv.conf out/rootfs/etc/resolv.conf`)
-
   await rimrafAsync(path.join('out', 'rootfs', kernelDeb)) 
+  await createFileAsync('etc/overlayroot.conf', 'overlayroot="tmpfs:swap=1,recurse=0"')
 
   await mkdirpAsync('out/rootfs/tmp')
   await mkdirpAsync('out/rootfs/var/volatile')

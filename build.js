@@ -38,26 +38,17 @@ if (process.getuid()) {
 let args = process.argv.slice(2)
 args.forEach(arg => {})
 
-const fstab = part => {
-  let root, alt
-  if (part === 'a') {
-    root = partUUID.a
-    alt = partUUID.b
-  } else if (part === 'b') {
-    root = partUUID.b
-    alt = partUUID.a
-  } else {
-    throw new Error('bad root fs name')
-  }
-
-  return `# <file system> <mount point>   <type>  <options>   <dump>  <pass>
-UUID=${root}        /               ext4    defaults          0       1
-UUID=${alt}         /mnt/alt        ext4    defaults          0       2
-UUID=${partUUID.p}  /mnt/persistent ext4    defaults          0       3
-UUID=${partUUID.s}  none            swap    sw                0       0        
+// no root and alt root, only partition p, swap and tmpfs
+const fstab = `
+# <file system>                             <mount point>     <type>  <options>                   <dump>  <fsck>
+UUID=0cbc36fa-3b85-40af-946e-f15dce29d86b   /mnt/persistent   ext4    defaults                    0       1
+UUID=f0bc3049-049f-4e8e-8215-55f48add603f   none              swap    sw                          0       0
+tmpfs                                       /tmp              tmpfs   nodev,nosuid,size=64M       0       0
+tmpfs                                       /var/log          tmpfs   nodev,nosuid,size=64M       0       0
+tmpfs                                       /var/volatile     tmpfs   nodev,nosuid,size=64M       0       0
+/var/volatile/lib                           /var/lib          none    bind                        0       0
+/var/volatile/tmp                           /var/tmp          none    bind                        0       0
 `
-}
-
 
 const getNode = callback => {
   console.log('retrieving latest node.js lts releases')
@@ -319,7 +310,6 @@ rootdev=UUID=${uuid}
     'vim',
     'openssh-server',
     'network-manager',
-//    'overlayroot'
     'avahi-daemon',
     'avahi-utils',
     'udisks2',
@@ -343,12 +333,13 @@ rootdev=UUID=${uuid}
   await cexecAsync(`mkimage -A arm64 -O linux -T ramdisk -C gzip -n uInitrd`
     + ` -d /boot/initrd.img-${kernelVer} /boot/uInitrd-${kernelVer}`)
   await cexecAsync(`ln -s uInitrd-${kernelVer} /boot/uInitrd`)
-  await cexecAsync(`ln -s /usr/lib/linux-image-${kernelVer} /boot/dtb`)
+  await cexecAsync(`cp /usr/lib/linux-image-${kernelVer}/rockchip/rk3328-rock64.dtb /boot/rk3328-rock64.dtb`)
+  await cexecAsync(`ln -s rk3328-rock64.dtb /boot/dtb`)
 
   // dns & network
   await cexecAsync(`systemctl enable systemd-resolved`)
   await cexecAsync(`systemctl enable NetworkManager`)
-  // await cexecAsync(`systemctl disable smbd nmbd minidlna`)
+  await cexecAsync(`systemctl disable smbd nmbd minidlna`)
 
   await cexecAsync(`apt clean`) 
 
@@ -362,28 +353,22 @@ rootdev=UUID=${uuid}
   // update conf
   await createFileAsync('etc/NetworkManager/NetworkManager.conf', nmconf)
   await createFileAsync('etc/NetworkManager/conf.d/10-globally-managed-devices.conf', '')
-  // await createFileAsync('etc/overlayroot.conf', 'overlayroot="tmpfs:swap=1,recurse=0"')
   await rimrafAsync(path.join('out', 'rootfs', 'etc/resolv.conf'))
   await execAsync(`ln -sf /run/systemd/resolve/resolv.conf out/rootfs/etc/resolv.conf`)
 
   await rimrafAsync(path.join('out', 'rootfs', kernelDeb)) 
 
-  await mkdirpAsync('out/rootfs/winas')
+  await mkdirpAsync('out/rootfs/tmp')
+  await mkdirpAsync('out/rootfs/var/volatile')
   await mkdirpAsync('out/rootfs/mnt/alt')
   await mkdirpAsync('out/rootfs/mnt/persistent')
+  await mkdirpAsync('out/rootfs/winas')
   
-  // !!! important, this file indicates a rootfs upgrade status
-  await rimrafAsync('out/rootfs/etc/fstab')
-  await fs.writeFileAsync('out/rootfs/etc/fstab-a', fstab('a'))
-  await fs.writeFileAsync('out/rootfs/etc/fstab-b', fstab('b'))
+  await createFileAsync('etc/fstab', fstab)
 
   await mkdirpAsync('out/p/boot')
   await fs.copyFileAsync('assets/boot.cmd', 'out/p/boot/boot.cmd')
   await execAsync(`mkimage -C none -A arm -T script -d out/p/boot/boot.cmd out/p/boot/boot.scr`)
-
-  await fs.writeFileAsync('out/p/boot/armbianEnv.txt', bootenv(partUUID.a))
-  await fs.writeFileAsync('out/p/boot/env-a.txt', bootenv(partUUID.a))
-  await fs.writeFileAsync('out/p/boot/env-b.txt', bootenv(partUUID.b))
 
   await mkdirpAsync('out/p/overlay/etc')
   await execAsync('mv out/rootfs/etc/NetworkManager out/p/overlay/etc')

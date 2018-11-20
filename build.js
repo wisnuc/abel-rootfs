@@ -30,6 +30,8 @@ let kernelTag
 let kernelVer
 let kernelDeb
 
+const CONFIG_INSTALL_OVERLAYROOT = false
+
 if (process.getuid()) {
   console.log('this script requires root priviledge')
   process.exit()
@@ -289,28 +291,27 @@ wifi.scan-rand-mac-address=no
 
   let packages = [
     'initramfs-tools', 
-    'ifupdown',
+    // 'ifupdown',
     'net-tools',
     'btrfs-tools',
     'u-boot-tools',
-    'wireless-tools',
+    // 'wireless-tools',
     'sudo', 
     'vim',
     'openssh-server',
     'network-manager',
     'avahi-daemon',
     'avahi-utils',
-    'udisks2',
     'libimage-exiftool-perl',
     'imagemagick',
-    'ffmpeg',
+    // 'ffmpeg',
     'samba',
     'rsyslog',
     'minidlna',
     'overlayroot'
   ]
 
-  await cexecAsync(`DEBIAN_FRONTEND=noninteractive apt -y install ${packages.join(' ')}`)
+  await cexecAsync(`DEBIAN_FRONTEND=noninteractive apt -y install --no-install-recommends ${packages.join(' ')}`)
   await cexecAsync(`useradd winas -b /home -m -s /bin/bash`)
   await cexecAsync(`echo winas:winas | chpasswd`)
   await cexecAsync(`adduser winas sudo`)
@@ -325,8 +326,8 @@ wifi.scan-rand-mac-address=no
 
   // dns & network
   await cexecAsync(`systemctl enable systemd-resolved`)
-  await cexecAsync(`systemctl enable NetworkManager`)
-  await cexecAsync(`systemctl disable smbd nmbd minidlna`)
+//  await cexecAsync(`systemctl enable NetworkManager`)
+  await cexecAsync(`systemctl disable apt-daily-upgrade.timer apt-daily.timer motd-news.timer`)
 
   await cexecAsync(`apt clean`) 
 
@@ -342,6 +343,7 @@ wifi.scan-rand-mac-address=no
   await rimrafAsync(path.join('out', 'rootfs', 'etc/resolv.conf'))
   await execAsync(`ln -sf /run/systemd/resolve/resolv.conf out/rootfs/etc/resolv.conf`)
   await rimrafAsync(path.join('out', 'rootfs', kernelDeb)) 
+
   await createFileAsync('etc/overlayroot.conf', 'overlayroot="tmpfs:swap=1,recurse=0"')
 
   await mkdirpAsync('out/rootfs/tmp')

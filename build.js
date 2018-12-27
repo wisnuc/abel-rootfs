@@ -164,16 +164,18 @@ wifi.scan-rand-mac-address=no
     'bluez',
     'bluetooth',
     'sudo', 
-    'openssh-server',
+    // 'openssh-server',
     'network-manager',
-    'avahi-daemon',
-    'avahi-utils',
+    // 'avahi-daemon',
+    // 'avahi-utils',
     // 'libimage-exiftool-perl',
-    'imagemagick',
-    'samba',
+    // 'imagemagick',
+    // 'samba',
     'rsyslog',
-    'minidlna',
-    'overlayroot'
+    // 'minidlna',
+    // 'overlayroot',
+    // 'apt-file',
+    // 'aptitude'
   ]
 
   // install packages
@@ -191,6 +193,10 @@ wifi.scan-rand-mac-address=no
 
   // install kernel
   await cexecAsync(`dpkg -i ${kernel.filename}`)
+  // gunzip vmlinuz
+  await cexecAsync(`mv /boot/vmlinuz-${kernel.ver} /boot/vmlinuz-${kernel.ver}.gz`)
+  await cexecAsync(`gunzip /boot/vmlinuz-${kernel.ver}.gz`)
+
   await cexecAsync(`ln -s vmlinuz-${kernel.ver} /boot/Image`)
   if (packages.includes('u-boot-tools')) {
     await cexecAsync(`mkimage -A arm64 -O linux -T ramdisk -C gzip -n uInitrd -d /boot/initrd.img-${kernel.ver} /boot/uInitrd-${kernel.ver}`)
@@ -202,15 +208,17 @@ wifi.scan-rand-mac-address=no
 
   // enable systemd-resolved
   await cexecAsync(`systemctl enable systemd-resolved`)
+
   // disable apt daily & motd-news
   await cexecAsync(`systemctl disable apt-daily-upgrade.timer apt-daily.timer motd-news.timer`)
-  await cexecAsync(`apt -y remove u-boot-tools initramfs-tools overlayroot`)
-  await cexecAsync(`apt -y autoremove`)
+  // await cexecAsync(`apt -y --purge remove u-boot-tools initramfs-tools overlayroot`)
+  await cexecAsync(`apt -y --purge autoremove`)
   await cexecAsync(`apt clean --dry-run`) 
   await cexecAsync(`apt clean`) 
-  await Promise.delay(1000)
 
-  // await cexecAsync(`apt -y --allow-remove-essential remove apt`)
+  // await cexecAsync(`apt -y --allow-remove-essential --purge autoremove apt `)
+  // this does NOT work
+  // await cexecAsync(`dpkg --purge apt`)
 
   cog('un-mounting special file system for chroot')
 
@@ -221,13 +229,13 @@ wifi.scan-rand-mac-address=no
 
   cog('un-mounted')
 
-  await exAsync(`rm -rf out/rootfs/var/lib/apt/lists`)
-  await exAsync(`mkdir -p out/rootfs/var/lib/apt/lists`)
+  // await exAsync(`rm -rf out/rootfs/var/lib/initramfs-tools`)
+  // await exAsync(`rm -rf out/rootfs/var/lib/apt/lists`)
+  // await exAsync(`mkdir -p out/rootfs/var/lib/apt/lists`)
 
   // remove qemu static
   await exAsync(`rm out/rootfs/${qemus}`)
   // systemd-resolved
-  // await rimrafAsync(path.join('out', 'rootfs', 'etc/resolv.conf'))
   await exAsync('rm out/rootfs/etc/resolv.conf') 
   await exAsync(`ln -sf /run/systemd/resolve/resolv.conf out/rootfs/etc/resolv.conf`)
   // network manager
@@ -237,8 +245,9 @@ wifi.scan-rand-mac-address=no
   }
   // fstab
   await createFileAsync('etc/fstab', fstab)
+
   // overlayroot
-  await createFileAsync('etc/overlayroot.conf', 'overlayroot="tmpfs:swap=1,recurse=0"')
+  // await createFileAsync('etc/overlayroot.conf', 'overlayroot="tmpfs:swap=1,recurse=0"')
 
   await mkdirpAsync('out/rootfs/tmp')
   await mkdirpAsync('out/rootfs/var/volatile')

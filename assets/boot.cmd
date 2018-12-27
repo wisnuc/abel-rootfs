@@ -8,7 +8,7 @@ else
   echo "Boot from ${devtype} ${devnum}:${partnum}"
 fi
 
-setenv bootargs "root=${rootdev} rootwait rootfstype=ext4 console=tty0 console=ttyS2,1500000 loglevel=3"
+setenv bootargs "root=${rootdev} rw rootwait rootfstype=ext4 console=tty0 console=ttyS2,1500000 loglevel=3"
 
 load ${devtype} ${devnum}:${partnum} ${ramdisk_addr_r} ${prefix}uInitrd
 load ${devtype} ${devnum}:${partnum} ${kernel_addr_r} ${prefix}Image
@@ -19,4 +19,4 @@ fdt resize 65536
 booti ${kernel_addr_r} ${ramdisk_addr_r} ${fdt_addr_r}
 
 # Recompile with:
-# mkimage -C none -A arm -T script -d /boot/boot.cmd /boot/boot.scr
+# mkimage -C none -A arm -T script -d boot.cmd boot.scr

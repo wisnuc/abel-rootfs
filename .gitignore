@@ -73,3 +73,10 @@ assets/*
 tmp/
 out/
 rootfs/
+
+/*.deb
+/*.img
+/tmpmnt
+/mnta
+/mntp
+
